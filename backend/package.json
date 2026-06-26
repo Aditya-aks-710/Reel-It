@@ -1,0 +1,26 @@
+{
+  "name": "reel-downloader",
+  "version": "1.0.0",
+  "description": "A practice Node.js app that takes an Instagram reel URL and provides a download for the video.",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test tests"
+  },
+  "keywords": [
+    "instagram",
+    "reel",
+    "downloader",
+    "express",
+    "practice"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.5.2"
+  }
+}
