@@ -15,19 +15,6 @@ export async function resolveReel(url) {
   return data;
 }
 
-export async function saveOnServer(url, audioOnly) {
-  const res = await fetch('/api/save', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(audioOnly ? { url, audio: 1 } : { url }),
-  });
-  const data = await res.json();
-  if (!res.ok || !data.success) {
-    throw new Error(data.error || 'Save failed.');
-  }
-  return data;
-}
-
 export function inlineStreamUrl(url) {
   return '/api/download?inline=1&url=' + encodeURIComponent(url);
 }

@@ -1,0 +1,34 @@
+# Dependencies (reinstalled inside the image)
+**/node_modules
+
+# Python virtualenv (yt-dlp is installed fresh in the image)
+**/.venv
+
+# Build output (the image builds the frontend itself)
+frontend/dist
+
+# Local env files and secrets — never bake these into an image
+**/.env
+**/.env.*
+!**/.env.example
+
+# Downloaded media
+downloads/
+**/downloads
+
+# Logs
+**/*.log
+logs/
+
+# Git / editor / OS
+.git
+.gitignore
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+README.md

@@ -6,11 +6,9 @@ const path = require('path');
 const { resolveReel } = require('../services/resolver.service');
 const {
   openVideoStream,
-  saveToDisk,
   buildFilename,
 } = require('../services/downloader.service');
 const ytdlp = require('../services/ytdlp.service');
-const config = require('../config');
 const { Readable } = require('stream');
 
 /**
@@ -79,47 +77,4 @@ const download = asyncHandler(async (req, res) => {
   Readable.fromWeb(stream).pipe(res);
 });
 
-/**
- * POST /api/save
- * Body: { "url": "https://www.instagram.com/reel/XXXX/" }
- * Saves the video to disk (config.downloadDir) and returns the saved path.
- *
- * Prefers letting yt-dlp download directly (it merges audio+video and picks
- * the right extension); falls back to streaming the resolved URL to disk.
- */
-const save = asyncHandler(async (req, res) => {
-  const dir = path.resolve(config.downloadDir);
-  await fs.promises.mkdir(dir, { recursive: true });
-
-  const audioOnly =
-    req.body?.audio === true ||
-    req.body?.audio === 1 ||
-    req.query.audio === '1' ||
-    req.query.audio === 'true';
-
-  if (ytdlp.isAvailable()) {
-    try {
-      const { filePath } = await ytdlp.downloadToFile(req.reelUrl, dir, {
-        audioOnly,
-      });
-      const { size } = await fs.promises.stat(filePath);
-      return res.json({
-        success: true,
-        filePath,
-        filename: path.basename(filePath),
-        bytes: size,
-        via: 'yt-dlp',
-      });
-    } catch {
-      // Fall through to the streaming saver below.
-    }
-  }
-
-  const { videoUrl } = await resolveReel(req.reelUrl);
-  const filename = buildFilename(req.reelUrl);
-  const { filePath, bytes } = await saveToDisk(videoUrl, filename);
-
-  res.json({ success: true, filePath, filename, bytes, via: 'stream' });
-});
-
-module.exports = { resolve, download, save };
+module.exports = { resolve, download };

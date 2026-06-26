@@ -1,0 +1,17 @@
+services:
+  app:
+    build: .
+    image: reel-downloader
+    container_name: reel-downloader
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      # Uncomment to use a cookies.txt file mounted into the container to beat
+      # Instagram's login wall on some reels:
+      # COOKIES_FILE: /app/cookies.txt
+    # volumes:
+    #   - ./cookies.txt:/app/cookies.txt:ro
+    #   - ./downloads:/app/downloads
+    restart: unless-stopped

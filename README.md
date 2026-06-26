@@ -108,6 +108,41 @@ npm test
 
 ---
 
+## Run with Docker
+
+The image bundles everything — Node, the built frontend, **yt-dlp**, and
+**ffmpeg** (so audio comes out as `.mp3`). No Python venv setup needed.
+
+**Using docker compose (recommended):**
+
+```bash
+docker compose up --build
+```
+
+**Or plain Docker:**
+
+```bash
+docker build -t reel-downloader .
+docker run --rm -p 3000:3000 reel-downloader
+```
+
+Then open http://localhost:3000 — the backend serves the built frontend, so the
+whole app runs on a single port.
+
+**Optional — beat the login wall with cookies:** export a `cookies.txt`
+(Netscape format) and mount it in:
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e COOKIES_FILE=/app/cookies.txt \
+  -v "$(pwd)/cookies.txt:/app/cookies.txt:ro" \
+  reel-downloader
+```
+
+(or uncomment the matching lines in `docker-compose.yml`).
+
+---
+
 ## How it works (the flow)
 
 ```

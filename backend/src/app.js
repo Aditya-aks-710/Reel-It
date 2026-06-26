@@ -1,6 +1,5 @@
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
 const express = require('express');
 
@@ -27,13 +26,10 @@ function createApp() {
     next();
   });
 
-  // Serve the frontend. Prefer the built React app (frontend/dist); fall back
-  // to the legacy static page in /public when the client hasn't been built.
+  // Serve the built React frontend (frontend/dist) when it exists. In dev the
+  // frontend runs on Vite (port 5173) and proxies /api here instead.
   const clientDist = path.join(__dirname, '..', '..', 'frontend', 'dist');
-  const staticDir = fs.existsSync(clientDist)
-    ? clientDist
-    : path.join(__dirname, '..', 'public');
-  app.use(express.static(staticDir));
+  app.use(express.static(clientDist));
 
   // API routes (rate-limited).
   app.use('/api', apiRateLimiter, routes);
