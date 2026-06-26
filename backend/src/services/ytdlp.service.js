@@ -200,9 +200,15 @@ async function downloadToFile(reelUrl, outDir, opts = {}) {
       args.push('--extract-audio', '--audio-format', 'mp3', '--audio-quality', '0');
     }
   } else {
-    // Best video+audio: merges with ffmpeg if available, otherwise falls
-    // through to the best single (progressive) stream automatically.
-    args.push('-f', 'bv*+ba/b/best', '--merge-output-format', 'mp4');
+    // Prefer a progressive stream that ALREADY contains audio (reliable sound,
+    // no ffmpeg merge needed). Only fall back to merging separate video+audio
+    // tracks if no combined format exists.
+    args.push(
+      '-f',
+      'best[acodec!=none][vcodec!=none]/bv*+ba/b/best',
+      '--merge-output-format',
+      'mp4'
+    );
   }
   if (config.ytdlp.ffmpegPath) {
     args.push('--ffmpeg-location', config.ytdlp.ffmpegPath);
