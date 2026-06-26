@@ -1,0 +1,20 @@
+# Render Blueprint — deploys the Dockerfile as a single web service.
+# Docs: https://render.com/docs/blueprint-spec
+#
+# To use: push this file, then on render.com choose
+# "New + → Blueprint" and point it at this repo.
+services:
+  - type: web
+    name: reel-downloader
+    runtime: docker
+    plan: free # free tier sleeps after ~15 min idle; upgrade for always-on
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Render sets PORT automatically; the app already reads process.env.PORT.
+      # Optional: paste a Netscape cookies.txt to beat the login wall.
+      # - key: COOKIES_FILE
+      #   value: /etc/secrets/cookies.txt
