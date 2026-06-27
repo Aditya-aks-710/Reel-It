@@ -26,6 +26,19 @@ test('extractVideoUrl returns null when no video present', () => {
   assert.strictEqual(extractVideoUrl(html), null);
 });
 
+test('extractVideoUrl prefers progressive video_versions over og:video', () => {
+  const html = `
+    <html><head>
+      <meta property="og:video" content="https://cdn.example.com/dash.mp4" />
+    </head><body><script type="application/json">
+      {"video_versions":[{"type":101,"url":"https:\\/\\/cdn.example.com\\/progressive.mp4?t=a\\u0026s=1"}]}
+    </script></body></html>`;
+  assert.strictEqual(
+    extractVideoUrl(html),
+    'https://cdn.example.com/progressive.mp4?t=a&s=1'
+  );
+});
+
 test('decodeHtmlEntities decodes common entities', () => {
   assert.strictEqual(
     decodeHtmlEntities('a&amp;b&quot;c&#39;d'),

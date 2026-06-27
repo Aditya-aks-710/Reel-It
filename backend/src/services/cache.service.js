@@ -28,8 +28,4 @@ function set(key, value, ttlMs = config.cacheTtlMs) {
   store.set(key, { value, expiresAt: Date.now() + ttlMs });
 }
 
-function clear() {
-  store.clear();
-}
-
-module.exports = { get, set, clear };
+module.exports = { get, set };

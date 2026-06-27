@@ -63,19 +63,16 @@ const download = asyncHandler(async (req, res) => {
   const disposition = isInline ? 'inline' : 'attachment';
   const audioOnly = req.query.audio === '1' || req.query.audio === 'true';
 
-  // For real downloads (and all audio), let yt-dlp produce the file. It always
-  // yields a stream WITH audio: it merges the separate video/audio tracks when
-  // ffmpeg is present, or falls back to a progressive (audio-included) stream
-  // when it isn't. Instagram often serves video-only adaptive streams, so
-  // piping the raw resolved URL can give a silent file.
-  if (ytdlp.isAvailable() && (audioOnly || !isInline)) {
+  // Audio-only: let yt-dlp extract just the audio track (m4a, or mp3 if ffmpeg
+  // is present). The video path below doesn't need yt-dlp.
+  if (audioOnly && ytdlp.isAvailable()) {
     const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'reel-'));
     try {
       const { filePath } = await ytdlp.downloadToFile(req.reelUrl, tmpDir, {
-        audioOnly,
+        audioOnly: true,
       });
       const { size } = await fs.promises.stat(filePath);
-      const ext = path.extname(filePath) || (audioOnly ? '.m4a' : '.mp4');
+      const ext = path.extname(filePath) || '.m4a';
       const outName = filename.replace(/\.mp4$/i, ext);
       res.setHeader('Content-Type', contentTypeFor(ext));
       res.setHeader('Content-Disposition', `${disposition}; filename="${outName}"`);
@@ -92,8 +89,9 @@ const download = asyncHandler(async (req, res) => {
     return;
   }
 
-  // Inline preview (or yt-dlp unavailable): stream the resolved URL directly
-  // for an instant preview.
+  // Video (download or inline preview): stream the resolved URL directly.
+  // Instagram's "video_versions" are PROGRESSIVE mp4s that already include
+  // audio, so the file has sound without needing an ffmpeg merge.
   const { videoUrl } = await resolveReel(req.reelUrl);
   const { stream, contentType, contentLength } = await openVideoStream(videoUrl);
   res.setHeader('Content-Type', contentType);

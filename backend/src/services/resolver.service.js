@@ -21,6 +21,47 @@ const cache = require('./cache.service');
  */
 
 /**
+ * Warm a logged-out "guest" session.
+ *
+ * Instagram only embeds the playable video data in the reel page when the
+ * request carries a guest session cookie (csrftoken/mid) AND browser-like
+ * headers — exactly what a logged-out browser sends when it plays the reel
+ * behind the signup modal. We fetch the homepage once and reuse its cookies.
+ */
+let _guestCookie = null;
+let _guestCookieAt = 0;
+const GUEST_COOKIE_TTL_MS = 10 * 60 * 1000;
+
+async function getGuestCookie() {
+  const now = Date.now();
+  if (_guestCookie !== null && now - _guestCookieAt < GUEST_COOKIE_TTL_MS) {
+    return _guestCookie;
+  }
+  try {
+    const res = await fetch('https://www.instagram.com/', {
+      headers: {
+        'User-Agent': config.userAgent,
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+    const jar = {};
+    for (const line of res.headers.getSetCookie() || []) {
+      const [pair] = line.split(';');
+      const i = pair.indexOf('=');
+      if (i > 0) jar[pair.slice(0, i).trim()] = pair.slice(i + 1).trim();
+    }
+    _guestCookie = Object.entries(jar)
+      .map(([k, v]) => `${k}=${v}`)
+      .join('; ');
+    _guestCookieAt = now;
+  } catch (err) {
+    logger.warn(`Could not warm guest session: ${err.message}`);
+    _guestCookie = _guestCookie || '';
+  }
+  return _guestCookie;
+}
+
+/**
  * Fetch the raw HTML of a reel page.
  * @param {string} url
  * @returns {Promise<string>} HTML body
@@ -30,10 +71,19 @@ async function fetchReelPage(url) {
   const timeout = setTimeout(() => controller.abort(), config.requestTimeoutMs);
 
   try {
+    const cookie = await getGuestCookie();
     const res = await fetch(url, {
       headers: {
         'User-Agent': config.userAgent,
         'Accept-Language': 'en-US,en;q=0.9',
+        Accept:
+          'text/html,application/xhtml+xml,application/xml;q=0.9,' +
+          'image/avif,image/webp,*/*;q=0.8',
+        'sec-fetch-dest': 'document',
+        'sec-fetch-mode': 'navigate',
+        'sec-fetch-site': 'none',
+        'upgrade-insecure-requests': '1',
+        ...(cookie ? { Cookie: cookie } : {}),
       },
       signal: controller.signal,
     });
@@ -78,6 +128,18 @@ function toEmbedUrl(reelUrl) {
  * @returns {string|null} direct .mp4 URL, or null if not found
  */
 function extractVideoUrl(html) {
+  // Preferred: the "video_versions" array Instagram embeds in the page JSON for
+  // logged-out viewers. These are PROGRESSIVE mp4s that already include audio
+  // (this is the stream the browser plays behind the signup modal).
+  const versions = html.match(/"video_versions":\[(.*?)\]/s);
+  if (versions && versions[1]) {
+    const urls = [...versions[1].matchAll(/"url":"([^"]+)"/g)].map((m) =>
+      unescapeJsonString(m[1])
+    );
+    const mp4 = urls.find((u) => /\.mp4/i.test(u)) || urls[0];
+    if (mp4) return mp4;
+  }
+
   // <meta property="og:video" content="https://...mp4" />
   const ogVideo = html.match(
     /<meta[^>]+property=["']og:video["'][^>]+content=["']([^"']+)["']/i

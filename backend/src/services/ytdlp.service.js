@@ -238,6 +238,5 @@ async function downloadToFile(reelUrl, outDir, opts = {}) {
 module.exports = {
   isAvailable,
   resolveWithYtDlp,
-  pickVideoUrl,
   downloadToFile,
 };
