@@ -4,6 +4,7 @@ const { resolveReel } = require('../services/resolver.service');
 const {
   openVideoStream,
   openAudioStream,
+  openMuxedStream,
   buildFilename,
 } = require('../services/downloader.service');
 const { ffmpegAvailable } = require('../services/ytdlp.service');
@@ -40,17 +41,28 @@ const download = asyncHandler(async (req, res) => {
   const audioOnly = req.query.audio === '1' || req.query.audio === 'true';
 
   // The resolver returns Instagram's progressive mp4 (video + AAC audio) via
-  // the no-login guest-session method — no yt-dlp or cookies involved.
-  const { videoUrl } = await resolveReel(req.reelUrl);
+  // the no-login guest-session method. When it falls back to yt-dlp, the reel
+  // may instead come as a separate video-only + audio-only pair (audioUrl set).
+  const { videoUrl, audioUrl } = await resolveReel(req.reelUrl);
 
-  // Audio-only: copy just the audio track into a streamed m4a with ffmpeg,
-  // reusing the already-resolved progressive URL (logged-out yt-dlp is blocked
-  // by Instagram, so we never touch it here).
+  // Audio-only: copy just the audio track into a streamed m4a with ffmpeg.
+  // Prefer the dedicated audio track when we have one, else strip it from the
+  // progressive video.
   if (audioOnly && (await ffmpegAvailable())) {
     const outName = filename.replace(/\.mp4$/i, '.m4a');
     res.setHeader('Content-Type', 'audio/mp4');
     res.setHeader('Content-Disposition', `${disposition}; filename="${outName}"`);
-    const { stream } = openAudioStream(videoUrl);
+    const { stream } = openAudioStream(audioUrl || videoUrl);
+    stream.pipe(res);
+    return;
+  }
+
+  // Separate DASH tracks: mux the video-only and audio-only streams together so
+  // the download isn't silent. Needs ffmpeg (always present in Docker/Render).
+  if (audioUrl && (await ffmpegAvailable())) {
+    res.setHeader('Content-Type', 'video/mp4');
+    res.setHeader('Content-Disposition', `${disposition}; filename="${filename}"`);
+    const { stream } = openMuxedStream(videoUrl, audioUrl);
     stream.pipe(res);
     return;
   }

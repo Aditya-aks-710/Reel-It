@@ -82,6 +82,45 @@ function openAudioStream(videoUrl) {
   return { stream: child.stdout, contentType: 'audio/mp4' };
 }
 
+/**
+ * Mux a separate video-only track and audio-only track into a single mp4 and
+ * stream it back. Instagram sometimes serves reels as separate DASH streams, so
+ * the "video" URL alone has no sound; ffmpeg copies both tracks (no re-encode)
+ * into a fragmented mp4 that streams without seeking. Requires ffmpeg.
+ * @param {string} videoUrl  video-only stream
+ * @param {string} audioUrl  audio-only stream
+ * @returns {{ stream: NodeJS.ReadableStream, contentType: string }}
+ */
+function openMuxedStream(videoUrl, audioUrl) {
+  const bin = config.ytdlp.ffmpegPath || 'ffmpeg';
+  const child = spawn(
+    bin,
+    [
+      '-hide_banner',
+      '-loglevel', 'error',
+      '-user_agent', config.userAgent,
+      '-i', videoUrl,
+      '-user_agent', config.userAgent,
+      '-i', audioUrl,
+      '-map', '0:v:0',
+      '-map', '1:a:0',
+      '-c', 'copy',
+      '-movflags', 'frag_keyframe+empty_moov',
+      '-f', 'mp4',
+      'pipe:1',
+    ],
+    { windowsHide: true }
+  );
+
+  child.stderr.on('data', (d) => logger.warn(`ffmpeg: ${String(d).trim()}`));
+  child.on('error', (err) => {
+    logger.error(`ffmpeg could not run: ${err.message}`);
+    child.stdout.destroy(err);
+  });
+
+  return { stream: child.stdout, contentType: 'video/mp4' };
+}
+
 /** Build a friendly filename like "reel-1718csk.mp4". */
 function buildFilename(reelUrl) {
   const match = reelUrl.match(/\/(reel|reels|p|tv)\/([A-Za-z0-9_-]+)/i);
@@ -89,4 +128,4 @@ function buildFilename(reelUrl) {
   return `reel-${id}.mp4`;
 }
 
-module.exports = { openVideoStream, openAudioStream, buildFilename };
+module.exports = { openVideoStream, openAudioStream, openMuxedStream, buildFilename };

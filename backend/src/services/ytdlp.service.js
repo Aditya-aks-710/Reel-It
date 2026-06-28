@@ -126,30 +126,59 @@ async function runWithCookieFallback(baseArgs, reelUrl) {
   throw lastErr || new AppError('yt-dlp failed.', 502);
 }
 
-/** Pick the best direct, progressive (video+audio) MP4 URL from yt-dlp info. */
-function pickVideoUrl(info) {
-  if (info.url) return info.url;
-
-  const formats = Array.isArray(info.formats) ? info.formats : [];
-  const progressive = formats.filter(
-    (f) =>
-      f.url &&
-      f.vcodec &&
-      f.vcodec !== 'none' &&
-      f.acodec &&
-      f.acodec !== 'none'
+/**
+ * Choose the best streams from yt-dlp's info.
+ *
+ * Instagram reels often expose only SEPARATE DASH tracks (a video-only stream
+ * plus an audio-only stream). yt-dlp's top-level `info.url` is then the
+ * video-only track — which is exactly why a naive pick comes out silent. So we:
+ *   1. prefer a single progressive format that already carries audio, else
+ *   2. return the best video-only + best audio-only pair (muxed later), else
+ *   3. fall back to whatever single URL is available.
+ *
+ * @returns {{ videoUrl: string, audioUrl: string|null } | null}
+ */
+function pickStreams(info) {
+  const formats = (Array.isArray(info.formats) ? info.formats : []).filter(
+    (f) => f.url
   );
-  const pool = progressive.length ? progressive : formats.filter((f) => f.url);
-  if (!pool.length) return null;
 
-  pool.sort((a, b) => (b.height || 0) - (a.height || 0));
-  return pool[0].url;
+  const hasVideo = (f) => f.vcodec && f.vcodec !== 'none';
+  const hasAudio = (f) => f.acodec && f.acodec !== 'none';
+
+  // 1) Progressive: one file with both video and audio.
+  const progressive = formats
+    .filter((f) => hasVideo(f) && hasAudio(f))
+    .sort((a, b) => (b.height || 0) - (a.height || 0));
+  if (progressive.length) {
+    return { videoUrl: progressive[0].url, audioUrl: null };
+  }
+
+  // 2) Separate DASH tracks: best video-only + best audio-only, muxed later.
+  const videoOnly = formats
+    .filter((f) => hasVideo(f) && !hasAudio(f))
+    .sort((a, b) => (b.height || 0) - (a.height || 0));
+  const audioOnly = formats
+    .filter((f) => hasAudio(f) && !hasVideo(f))
+    .sort((a, b) => (b.abr || 0) - (a.abr || 0));
+  if (videoOnly.length && audioOnly.length) {
+    return { videoUrl: videoOnly[0].url, audioUrl: audioOnly[0].url };
+  }
+
+  // 3) Last resort: any single URL (may be silent if it's a video-only track).
+  if (videoOnly.length) return { videoUrl: videoOnly[0].url, audioUrl: null };
+  if (info.url) return { videoUrl: info.url, audioUrl: null };
+  if (formats.length) {
+    formats.sort((a, b) => (b.height || 0) - (a.height || 0));
+    return { videoUrl: formats[0].url, audioUrl: null };
+  }
+  return null;
 }
 
 /**
  * Resolve a reel via yt-dlp.
  * @param {string} reelUrl
- * @returns {Promise<{ videoUrl: string, thumbnail: string|null, caption: string|null, username: string|null }>}
+ * @returns {Promise<{ videoUrl: string, audioUrl: string|null, thumbnail: string|null, caption: string|null, username: string|null }>}
  */
 async function resolveWithYtDlp(reelUrl) {
   logger.info(`Trying yt-dlp fallback for: ${reelUrl}`);
@@ -165,13 +194,14 @@ async function resolveWithYtDlp(reelUrl) {
     throw new AppError('Could not parse yt-dlp output.', 502);
   }
 
-  const videoUrl = pickVideoUrl(info);
-  if (!videoUrl) {
+  const streams = pickStreams(info);
+  if (!streams) {
     throw new AppError('yt-dlp could not find a downloadable video.', 422);
   }
 
   return {
-    videoUrl,
+    videoUrl: streams.videoUrl,
+    audioUrl: streams.audioUrl,
     thumbnail: info.thumbnail || null,
     caption: info.description || info.title || null,
     username: info.uploader || info.uploader_id || null,
