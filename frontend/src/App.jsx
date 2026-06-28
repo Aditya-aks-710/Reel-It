@@ -110,6 +110,7 @@ export default function App() {
       URL.revokeObjectURL(objUrl);
       setStatus({ msg: '', type: '' });
       setDone(true);
+      window.gtag?.('event', 'download', { mode });
       setTimeout(() => setDone(false), 1000);
     } catch (e) {
       setErr(e.message);
