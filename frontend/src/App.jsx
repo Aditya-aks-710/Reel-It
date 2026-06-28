@@ -1,5 +1,7 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { resolveReel, inlineStreamUrl, downloadUrl } from './api.js';
+
+const INSTAGRAM_RE = /https?:\/\/(www\.)?instagram\.com\/(reel|reels|p|tv)\//i;
 
 function filenameFor(url, audioOnly) {
   const m = url.match(/\/(reel|reels|p|tv)\/([A-Za-z0-9_-]+)/i);
@@ -16,7 +18,28 @@ export default function App() {
   const [progress, setProgress] = useState(null); // null = hidden, 0-100 = shown
   const [mode, setMode] = useState('video'); // 'video' | 'audio'
   const [done, setDone] = useState(false); // shows success burst
+  const [clipReady, setClipReady] = useState(false); // clipboard has a reel link
   const playerRef = useRef(null);
+
+  // Best-effort: peek at the clipboard and light up the paste button if it holds
+  // an Instagram link. Reading silently requires clipboard-read permission
+  // (Chromium); it fails quietly elsewhere.
+  async function refreshClipboard() {
+    if (!navigator.clipboard?.readText) return;
+    try {
+      const text = await navigator.clipboard.readText();
+      setClipReady(INSTAGRAM_RE.test(text || ''));
+    } catch {
+      /* no permission / not focused — leave the button in its default state */
+    }
+  }
+
+  // Re-check whenever the tab regains focus (e.g. after copying from another app).
+  useEffect(() => {
+    refreshClipboard();
+    window.addEventListener('focus', refreshClipboard);
+    return () => window.removeEventListener('focus', refreshClipboard);
+  }, []);
 
   const setOk = (msg) => setStatus({ msg, type: 'ok' });
   const setErr = (msg) => setStatus({ msg, type: 'error' });
@@ -100,6 +123,7 @@ export default function App() {
     try {
       const text = await navigator.clipboard.readText();
       if (text) setUrl(text.trim());
+      setClipReady(false);
     } catch {
       setStatus({ msg: 'Clipboard blocked — paste manually with Ctrl+V.', type: 'muted' });
     }
@@ -109,6 +133,7 @@ export default function App() {
     setUrl('');
     resetResult();
     setStatus({ msg: '', type: '' });
+    refreshClipboard();
   }
 
   const statusColor =
@@ -127,7 +152,7 @@ export default function App() {
           Paste a public Instagram reel link to preview and download it.
         </p>
 
-        <div className="flex gap-2">
+        <div className="flex items-center gap-1 rounded-xl border border-stroke bg-ink pr-1.5 transition focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25">
           <input
             type="url"
             value={url}
@@ -139,21 +164,49 @@ export default function App() {
             placeholder="https://www.instagram.com/reel/XXXXXXXXX/"
             autoComplete="off"
             spellCheck="false"
-            className="min-w-0 flex-1 rounded-xl border border-stroke bg-ink px-3.5 py-3 text-[16px] text-white outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/25"
+            className="min-w-0 flex-1 bg-transparent px-3.5 py-3 text-[16px] text-white outline-none placeholder:text-muted"
           />
           <button
-            className="grid w-11 shrink-0 place-items-center rounded-xl border border-stroke bg-ink text-muted transition hover:border-accent hover:text-white"
-            title="Paste from clipboard"
+            className={
+              'grid h-8 w-8 shrink-0 place-items-center rounded-lg transition ' +
+              (clipReady
+                ? 'text-accent hover:bg-white/5'
+                : 'text-muted hover:bg-white/5 hover:text-white')
+            }
+            title={clipReady ? 'Paste the copied Instagram link' : 'Paste from clipboard'}
             onClick={handlePaste}
           >
-            📋
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-[18px] w-[18px]"
+              aria-hidden="true"
+            >
+              <rect x="8" y="2" width="8" height="4" rx="1" />
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+            </svg>
           </button>
           <button
-            className="grid w-11 shrink-0 place-items-center rounded-xl border border-stroke bg-ink text-muted transition hover:border-accent hover:text-white"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted transition hover:bg-white/5 hover:text-white"
             title="Clear"
             onClick={handleClear}
           >
-            ✕
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-[18px] w-[18px]"
+              aria-hidden="true"
+            >
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
