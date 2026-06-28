@@ -1,6 +1,8 @@
 'use strict';
 
+const { spawn } = require('child_process');
 const config = require('../config');
+const logger = require('../utils/logger');
 const AppError = require('../utils/AppError');
 
 /**
@@ -45,6 +47,41 @@ async function openVideoStream(videoUrl) {
   }
 }
 
+/**
+ * Extract just the audio track from a progressive video URL using ffmpeg and
+ * stream it back as m4a. Instagram's progressive mp4 already carries AAC audio,
+ * so we copy it (no re-encode) into a fragmented mp4 that streams without
+ * needing to seek. Requires ffmpeg to be available.
+ * @param {string} videoUrl
+ * @returns {{ stream: NodeJS.ReadableStream, contentType: string }}
+ */
+function openAudioStream(videoUrl) {
+  const bin = config.ytdlp.ffmpegPath || 'ffmpeg';
+  const child = spawn(
+    bin,
+    [
+      '-hide_banner',
+      '-loglevel', 'error',
+      '-user_agent', config.userAgent,
+      '-i', videoUrl,
+      '-vn',
+      '-c:a', 'copy',
+      '-movflags', 'frag_keyframe+empty_moov',
+      '-f', 'mp4',
+      'pipe:1',
+    ],
+    { windowsHide: true }
+  );
+
+  child.stderr.on('data', (d) => logger.warn(`ffmpeg: ${String(d).trim()}`));
+  child.on('error', (err) => {
+    logger.error(`ffmpeg could not run: ${err.message}`);
+    child.stdout.destroy(err);
+  });
+
+  return { stream: child.stdout, contentType: 'audio/mp4' };
+}
+
 /** Build a friendly filename like "reel-1718csk.mp4". */
 function buildFilename(reelUrl) {
   const match = reelUrl.match(/\/(reel|reels|p|tv)\/([A-Za-z0-9_-]+)/i);
@@ -52,4 +89,4 @@ function buildFilename(reelUrl) {
   return `reel-${id}.mp4`;
 }
 
-module.exports = { openVideoStream, buildFilename };
+module.exports = { openVideoStream, openAudioStream, buildFilename };

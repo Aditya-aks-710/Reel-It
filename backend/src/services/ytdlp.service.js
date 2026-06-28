@@ -2,7 +2,6 @@
 
 const { spawn } = require('child_process');
 const fs = require('fs');
-const path = require('path');
 const config = require('../config');
 const logger = require('../utils/logger');
 const AppError = require('../utils/AppError');
@@ -179,64 +178,8 @@ async function resolveWithYtDlp(reelUrl) {
   };
 }
 
-/**
- * Let yt-dlp download the reel directly to disk.
- * @param {string} reelUrl
- * @param {string} outDir   directory to save into
- * @param {{ audioOnly?: boolean }} [opts]
- *   audioOnly: grab just the audio track (m4a) instead of the full video.
- * @returns {Promise<{ filePath: string }>}
- */
-async function downloadToFile(reelUrl, outDir, opts = {}) {
-  const audioOnly = !!opts.audioOnly;
-  const outTemplate = path.join(outDir, 'reel-%(id)s.%(ext)s');
-
-  const args = ['--no-warnings', '--no-playlist'];
-  if (audioOnly) {
-    // Best audio stream as-is (m4a) — no re-encode, so no ffmpeg required.
-    args.push('-f', 'bestaudio[ext=m4a]/bestaudio/ba/best');
-    // If ffmpeg is available, transcode to mp3 for maximum compatibility.
-    if (await ffmpegAvailable()) {
-      args.push('--extract-audio', '--audio-format', 'mp3', '--audio-quality', '0');
-    }
-  } else {
-    // Best video+audio: merges with ffmpeg if available, otherwise falls
-    // through to the best single (progressive) stream automatically.
-    args.push('-f', 'bv*+ba/b/best', '--merge-output-format', 'mp4');
-  }
-  if (config.ytdlp.ffmpegPath) {
-    args.push('--ffmpeg-location', config.ytdlp.ffmpegPath);
-  }
-  args.push('-o', outTemplate, '--print', 'after_move:filepath');
-
-  const stdout = await runWithCookieFallback(args, reelUrl);
-
-  // Prefer the explicit path yt-dlp printed, but fall back to scanning the
-  // output directory (merge/extract can change the extension, and extra stdout
-  // lines can shift the last line).
-  const printed = stdout
-    .split('\n')
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .pop();
-  if (printed && fs.existsSync(printed)) {
-    return { filePath: printed };
-  }
-
-  const produced = (await fs.promises.readdir(outDir))
-    .filter((f) => /^reel-.*\.(mp4|mkv|webm|mov|m4a|mp3|aac|opus|ogg)$/i.test(f))
-    .map((f) => path.join(outDir, f));
-  if (produced.length) {
-    // Newest file wins.
-    produced.sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
-    return { filePath: produced[0] };
-  }
-
-  throw new AppError('yt-dlp did not produce a downloadable file.', 502);
-}
-
 module.exports = {
   isAvailable,
   resolveWithYtDlp,
-  downloadToFile,
+  ffmpegAvailable,
 };

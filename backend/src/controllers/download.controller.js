@@ -1,14 +1,12 @@
 'use strict';
 
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
 const { resolveReel } = require('../services/resolver.service');
 const {
   openVideoStream,
+  openAudioStream,
   buildFilename,
 } = require('../services/downloader.service');
-const ytdlp = require('../services/ytdlp.service');
+const { ffmpegAvailable } = require('../services/ytdlp.service');
 const { Readable } = require('stream');
 
 /**
@@ -17,28 +15,6 @@ const { Readable } = require('stream');
  */
 function asyncHandler(fn) {
   return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
-}
-
-/** Map a file extension to a sensible Content-Type for media downloads. */
-function contentTypeFor(ext) {
-  switch (ext.toLowerCase()) {
-    case '.mp3':
-      return 'audio/mpeg';
-    case '.m4a':
-    case '.aac':
-      return 'audio/mp4';
-    case '.opus':
-    case '.ogg':
-      return 'audio/ogg';
-    case '.webm':
-      return 'video/webm';
-    case '.mkv':
-      return 'video/x-matroska';
-    case '.mov':
-      return 'video/quicktime';
-    default:
-      return 'video/mp4';
-  }
 }
 
 /**
@@ -63,36 +39,24 @@ const download = asyncHandler(async (req, res) => {
   const disposition = isInline ? 'inline' : 'attachment';
   const audioOnly = req.query.audio === '1' || req.query.audio === 'true';
 
-  // Audio-only: let yt-dlp extract just the audio track (m4a, or mp3 if ffmpeg
-  // is present). The video path below doesn't need yt-dlp.
-  if (audioOnly && ytdlp.isAvailable()) {
-    const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'reel-'));
-    try {
-      const { filePath } = await ytdlp.downloadToFile(req.reelUrl, tmpDir, {
-        audioOnly: true,
-      });
-      const { size } = await fs.promises.stat(filePath);
-      const ext = path.extname(filePath) || '.m4a';
-      const outName = filename.replace(/\.mp4$/i, ext);
-      res.setHeader('Content-Type', contentTypeFor(ext));
-      res.setHeader('Content-Disposition', `${disposition}; filename="${outName}"`);
-      res.setHeader('Content-Length', size);
-      await new Promise((resolve, reject) => {
-        const rs = fs.createReadStream(filePath);
-        rs.on('error', reject);
-        rs.on('end', resolve);
-        rs.pipe(res);
-      });
-    } finally {
-      fs.promises.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
-    }
+  // The resolver returns Instagram's progressive mp4 (video + AAC audio) via
+  // the no-login guest-session method — no yt-dlp or cookies involved.
+  const { videoUrl } = await resolveReel(req.reelUrl);
+
+  // Audio-only: copy just the audio track into a streamed m4a with ffmpeg,
+  // reusing the already-resolved progressive URL (logged-out yt-dlp is blocked
+  // by Instagram, so we never touch it here).
+  if (audioOnly && (await ffmpegAvailable())) {
+    const outName = filename.replace(/\.mp4$/i, '.m4a');
+    res.setHeader('Content-Type', 'audio/mp4');
+    res.setHeader('Content-Disposition', `${disposition}; filename="${outName}"`);
+    const { stream } = openAudioStream(videoUrl);
+    stream.pipe(res);
     return;
   }
 
-  // Video (download or inline preview): stream the resolved URL directly.
-  // Instagram's "video_versions" are PROGRESSIVE mp4s that already include
-  // audio, so the file has sound without needing an ffmpeg merge.
-  const { videoUrl } = await resolveReel(req.reelUrl);
+  // Video (or audio fallback when ffmpeg isn't installed): stream the resolved
+  // progressive mp4 directly — it already includes audio.
   const { stream, contentType, contentLength } = await openVideoStream(videoUrl);
   res.setHeader('Content-Type', contentType);
   res.setHeader('Content-Disposition', `${disposition}; filename="${filename}"`);
