@@ -111,128 +111,172 @@ export default function App() {
     setStatus({ msg: '', type: '' });
   }
 
+  const statusColor =
+    status.type === 'error' ? 'text-err' : status.type === 'ok' ? 'text-ok' : 'text-muted';
+
   return (
-    <main className="card">
-      <div className="brand">
-        <div className="logo">▶</div>
-        <h1>Reel Downloader</h1>
-      </div>
-      <p className="sub">
-        Paste a public Instagram reel link to preview and download it.
-      </p>
-
-      <div className="field">
-        <input
-          type="url"
-          value={url}
-          onChange={(e) => {
-            setUrl(e.target.value);
-            setDone(false);
-          }}
-          onKeyDown={(e) => e.key === 'Enter' && handleFind()}
-          placeholder="https://www.instagram.com/reel/XXXXXXXXX/"
-          autoComplete="off"
-          spellCheck="false"
-        />
-        <button className="icon-btn" title="Paste from clipboard" onClick={handlePaste}>
-          📋
-        </button>
-        <button className="icon-btn" title="Clear" onClick={handleClear}>
-          ✕
-        </button>
-      </div>
-
-      <div className="actions">
-        <button className="primary" onClick={handleFind} disabled={finding}>
-          {finding ? 'Finding…' : 'Find video'}
-        </button>
-      </div>
-
-      {finding && !current && (
-        <section className="result show">
-          <div className="skeleton" aria-hidden="true">
-            <span className="skeleton-spinner" />
-            <span className="skeleton-text">Fetching video…</span>
+    <div className="flex min-h-[100dvh] w-full justify-center overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:items-center">
+      <main className="my-auto flex w-full max-w-[480px] animate-rise flex-col rounded-3xl border border-white/[0.06] bg-card p-5 shadow-[0_20px_60px_rgba(0,0,0,0.5)] backdrop-blur-xl sm:p-6">
+        <div className="flex items-center gap-2.5">
+          <div className="grid h-9 w-9 place-items-center rounded-[10px] bg-gradient-to-br from-accent3 via-accent to-accent2 text-lg">
+            ▶
           </div>
-        </section>
-      )}
+          <h1 className="m-0 text-xl font-semibold tracking-tight">Reel Downloader</h1>
+        </div>
+        <p className="mb-4 mt-1.5 text-sm text-muted">
+          Paste a public Instagram reel link to preview and download it.
+        </p>
 
-      {current && (
-        <section className="result show">
-          <video
-            ref={playerRef}
-            src={inlineStreamUrl(current.url)}
-            controls
-            preload="metadata"
-            playsInline
+        <div className="flex gap-2">
+          <input
+            type="url"
+            value={url}
+            onChange={(e) => {
+              setUrl(e.target.value);
+              setDone(false);
+            }}
+            onKeyDown={(e) => e.key === 'Enter' && handleFind()}
+            placeholder="https://www.instagram.com/reel/XXXXXXXXX/"
+            autoComplete="off"
+            spellCheck="false"
+            className="min-w-0 flex-1 rounded-xl border border-stroke bg-ink px-3.5 py-3 text-[16px] text-white outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/25"
           />
-          <div className="mode" role="group" aria-label="Download type">
-            <button
-              type="button"
-              className={mode === 'video' ? 'active' : ''}
-              onClick={() => {
-                setMode('video');
-                setDone(false);
-              }}
-              disabled={busy}
+          <button
+            className="grid w-11 shrink-0 place-items-center rounded-xl border border-stroke bg-ink text-muted transition hover:border-accent hover:text-white"
+            title="Paste from clipboard"
+            onClick={handlePaste}
+          >
+            📋
+          </button>
+          <button
+            className="grid w-11 shrink-0 place-items-center rounded-xl border border-stroke bg-ink text-muted transition hover:border-accent hover:text-white"
+            title="Clear"
+            onClick={handleClear}
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="mt-3 flex">
+          <button
+            className="flex-1 rounded-xl bg-gradient-to-br from-accent to-accent2 px-3.5 py-3 text-[0.98rem] font-semibold text-white transition hover:brightness-110 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={handleFind}
+            disabled={finding}
+          >
+            {finding ? 'Finding…' : 'Find video'}
+          </button>
+        </div>
+
+        {finding && !current && (
+          <section className="mt-4 animate-rise">
+            <div
+              className="flex aspect-[9/16] max-h-[min(70dvh,560px)] w-full flex-col items-center justify-center gap-3.5 rounded-2xl border border-stroke bg-[linear-gradient(110deg,#11141a_30%,#1a1f29_50%,#11141a_70%)] bg-[length:220%_100%] text-muted animate-shimmer"
+              aria-hidden="true"
             >
-              🎬 Video + audio
-            </button>
-            <button
-              type="button"
-              className={mode === 'audio' ? 'active' : ''}
-              onClick={() => {
-                setMode('audio');
-                setDone(false);
-              }}
-              disabled={busy}
+              <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-white/10 border-t-accent" />
+              <span className="text-sm tracking-wide">Fetching video…</span>
+            </div>
+          </section>
+        )}
+
+        {current && (
+          <section className="mt-4 flex animate-rise flex-col">
+            <video
+              ref={playerRef}
+              src={inlineStreamUrl(current.url)}
+              controls
+              preload="metadata"
+              playsInline
+              className="block max-h-[min(70dvh,560px)] w-full rounded-2xl bg-black object-contain"
+            />
+            <div
+              className="mt-3 flex gap-1.5 rounded-xl border border-stroke bg-ink p-1.5"
+              role="group"
+              aria-label="Download type"
             >
-              🎵 Audio only
-            </button>
-          </div>
-          <div className="actions">
-            <button
-              className={'primary dl' + (done ? ' is-done' : '') + (busy ? ' is-loading' : '')}
-              onClick={handleDownload}
-              disabled={busy || done}
-            >
-              {progress != null && (
-                <span
-                  className="dl-fill"
-                  style={{ width: Math.max(0, Math.min(100, progress)) + '%' }}
-                />
-              )}
-              <span className="dl-label">
-                {done ? (
-                  <>
-                    <svg viewBox="0 0 24 24" className="dl-check" aria-hidden="true">
-                      <path d="M5 13l4 4 10-11" />
-                    </svg>
-                    Downloaded
-                  </>
-                ) : busy ? (
-                  <>
-                    <span className="dl-spinner" />
-                    {progress != null ? `Downloading ${Math.round(progress)}%` : 'Downloading…'}
-                  </>
-                ) : (
-                  <>⬇ Download</>
+              <button
+                type="button"
+                className={
+                  'flex-1 rounded-lg px-2.5 py-2 text-[0.88rem] font-semibold transition disabled:opacity-60 ' +
+                  (mode === 'video'
+                    ? 'bg-gradient-to-br from-accent to-accent2 text-white'
+                    : 'text-muted hover:text-white')
+                }
+                onClick={() => {
+                  setMode('video');
+                  setDone(false);
+                }}
+                disabled={busy}
+              >
+                🎬 Video + audio
+              </button>
+              <button
+                type="button"
+                className={
+                  'flex-1 rounded-lg px-2.5 py-2 text-[0.88rem] font-semibold transition disabled:opacity-60 ' +
+                  (mode === 'audio'
+                    ? 'bg-gradient-to-br from-accent to-accent2 text-white'
+                    : 'text-muted hover:text-white')
+                }
+                onClick={() => {
+                  setMode('audio');
+                  setDone(false);
+                }}
+                disabled={busy}
+              >
+                🎵 Audio only
+              </button>
+            </div>
+            <div className="mt-3.5 flex">
+              <button
+                className={
+                  'relative isolate flex-1 overflow-hidden rounded-xl px-3.5 py-3 font-semibold text-white transition disabled:cursor-default ' +
+                  (done
+                    ? 'animate-dlpop bg-gradient-to-br from-[#2fb344] to-ok'
+                    : 'bg-gradient-to-br from-accent to-accent2 hover:brightness-110')
+                }
+                onClick={handleDownload}
+                disabled={busy || done}
+              >
+                {progress != null && (
+                  <span
+                    className="absolute inset-y-0 left-0 -z-10 bg-gradient-to-r from-white/30 to-white/10 transition-[width] duration-150"
+                    style={{ width: Math.max(0, Math.min(100, progress)) + '%' }}
+                  />
                 )}
-              </span>
-            </button>
-          </div>
-        </section>
-      )}
+                <span className="inline-flex items-center justify-center gap-2">
+                  {done ? (
+                    <>
+                      <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden="true">
+                        <path className="dl-check-path" d="M5 13l4 4 10-11" />
+                      </svg>
+                      Downloaded
+                    </>
+                  ) : busy ? (
+                    <>
+                      <span className="h-[15px] w-[15px] shrink-0 animate-spin rounded-full border-2 border-white/45 border-t-white" />
+                      {progress != null ? `Downloading ${Math.round(progress)}%` : 'Downloading…'}
+                    </>
+                  ) : (
+                    <>⬇ Download</>
+                  )}
+                </span>
+              </button>
+            </div>
+          </section>
+        )}
 
-      <div className={'status ' + (status.type || '')}>
-        {status.spin && <span className="spinner" />}
-        {status.msg}
-      </div>
+        <div className={'mt-3.5 min-h-[1.2em] text-center text-[0.88rem] ' + statusColor}>
+          {status.spin && (
+            <span className="mr-1.5 inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white align-[-2px]" />
+          )}
+          {status.msg}
+        </div>
 
-      <footer>
-        Because screenshotting a video was just too much effort. You&apos;re
-        welcome.
-      </footer>
-    </main>
+        <footer className="mt-4 text-center text-[0.72rem] leading-relaxed text-muted">
+          Because screenshotting a video was just too much effort. You&apos;re welcome.
+        </footer>
+      </main>
+    </div>
   );
 }

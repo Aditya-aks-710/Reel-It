@@ -1,306 +1,56 @@
-:root {
-  --bg1: #0b0d12;
-  --bg2: #141826;
-  --card: rgba(26, 29, 36, 0.72);
-  --stroke: #2c313c;
-  --accent: #e1306c;
-  --accent2: #c13584;
-  --accent3: #f77737;
-  --text: #f5f6f8;
-  --muted: #9aa1ad;
-  --ok: #51cf66;
-  --err: #ff6b6b;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    color: #f5f6f8;
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial,
+      sans-serif;
+    background:
+      radial-gradient(1200px 600px at 10% -10%, #2a1530 0%, transparent 55%),
+      radial-gradient(1000px 500px at 110% 10%, #15263a 0%, transparent 50%),
+      linear-gradient(160deg, #0b0d12, #141826);
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button,
+  input {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
 }
 
-* { box-sizing: border-box; }
-html, body, #root { height: 100%; }
+@layer components {
+  /* Animated checkmark stroke for the "Downloaded" state */
+  .dl-check-path {
+    fill: none;
+    stroke: #fff;
+    stroke-width: 2.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 26;
+    stroke-dashoffset: 26;
+    animation: dl-draw 0.35s 0.05s ease forwards;
+  }
 
-/* App-like touch behaviour: no gray tap flash, no 300ms tap delay. */
-button, .icon-btn, input {
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
+  @keyframes dl-draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
 }
-
-body {
-  margin: 0;
-  min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  padding: clamp(12px, 4vw, 28px);
-  padding-top: max(clamp(12px, 4vw, 28px), env(safe-area-inset-top));
-  padding-bottom: max(clamp(12px, 4vw, 28px), env(safe-area-inset-bottom));
-  overflow-y: auto;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: var(--text);
-  background:
-    radial-gradient(1200px 600px at 10% -10%, #2a1530 0%, transparent 55%),
-    radial-gradient(1000px 500px at 110% 10%, #15263a 0%, transparent 50%),
-    linear-gradient(160deg, var(--bg1), var(--bg2));
-}
-
-#root { display: grid; place-items: center; width: 100%; }
-
-.card {
-  width: min(100%, 480px);
-  margin: auto;
-  background: var(--card);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  padding: clamp(18px, 5vw, 26px);
-  border-radius: clamp(14px, 4vw, 20px);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  animation: rise 0.45s ease both;
-}
-
-@keyframes rise {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: none; }
-}
-
-.brand { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
-.logo {
-  width: 34px; height: 34px; border-radius: 10px; flex: none;
-  background: linear-gradient(135deg, var(--accent3), var(--accent), var(--accent2));
-  display: grid; place-items: center; font-size: 18px;
-}
-h1 { margin: 0; font-size: clamp(1.2rem, 5vw, 1.4rem); letter-spacing: -0.01em; }
-p.sub { margin: 6px 0 18px; color: var(--muted); font-size: clamp(0.82rem, 3.5vw, 0.9rem); }
-
-.field { position: relative; display: flex; gap: 8px; }
-input {
-  flex: 1; min-width: 0;
-  padding: 13px 14px;
-  border-radius: 12px;
-  border: 1px solid var(--stroke);
-  background: #11141a;
-  color: var(--text);
-  /* 16px keeps iOS Safari from auto-zooming when the field is focused. */
-  font-size: 16px;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(225, 48, 108, 0.18);
-}
-.icon-btn {
-  flex: none;
-  width: 44px;
-  border-radius: 12px;
-  border: 1px solid var(--stroke);
-  background: #11141a;
-  color: var(--muted);
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-.icon-btn:hover { color: var(--text); border-color: var(--accent); }
-
-.actions { display: flex; gap: 10px; margin-top: 12px; }
-button.primary, button.ghost {
-  flex: 1;
-  padding: 13px 14px;
-  border: none;
-  border-radius: 12px;
-  font-size: 0.98rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.08s, filter 0.15s, opacity 0.15s;
-}
-button.primary {
-  background: linear-gradient(135deg, var(--accent), var(--accent2));
-  color: #fff;
-}
-button.ghost {
-  background: #11141a;
-  border: 1px solid var(--stroke);
-  color: var(--text);
-}
-button.primary:hover, button.ghost:hover { filter: brightness(1.08); }
-button:active { transform: translateY(1px); }
-button:disabled { opacity: 0.55; cursor: not-allowed; filter: none; }
-
-.result { margin-top: 18px; animation: rise 0.35s ease both; }
-video {
-  width: 100%;
-  border-radius: 14px;
-  background: #000;
-  max-height: min(70dvh, 560px);
-  object-fit: contain;
-  display: block;
-}
-.result .actions { margin-top: 14px; }
-
-/* Loading placeholder shown while resolving a reel */
-.skeleton {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 9 / 16;
-  max-height: min(70dvh, 560px);
-  border-radius: 14px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  color: var(--muted);
-  background: linear-gradient(110deg, #11141a 30%, #1a1f29 50%, #11141a 70%);
-  background-size: 220% 100%;
-  border: 1px solid var(--stroke);
-  animation: shimmer 1.4s ease-in-out infinite;
-}
-@keyframes shimmer {
-  from { background-position: 200% 0; }
-  to { background-position: -120% 0; }
-}
-.skeleton-spinner {
-  width: 36px;
-  height: 36px;
-  border: 3px solid rgba(255, 255, 255, 0.12);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-.skeleton-text { font-size: 0.9rem; letter-spacing: 0.01em; }
-@media (prefers-reduced-motion: reduce) {
-  .skeleton { animation: none; }
-}
-
-.mode {
-  display: flex; gap: 6px;
-  margin-top: 12px;
-  padding: 5px;
-  background: #11141a;
-  border: 1px solid var(--stroke);
-  border-radius: 12px;
-}
-.mode button {
-  flex: 1;
-  padding: 9px 10px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 0.88rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-.mode button:hover:not(:disabled) { color: var(--text); }
-.mode button.active {
-  background: linear-gradient(135deg, var(--accent), var(--accent2));
-  color: #fff;
-}
-.mode button:disabled { opacity: 0.55; cursor: not-allowed; }
-
-.progress {
-  margin-top: 14px; height: 8px; border-radius: 999px;
-  background: #11141a; overflow: hidden;
-}
-.progress > span {
-  display: block; height: 100%; width: 0%;
-  background: linear-gradient(90deg, var(--accent3), var(--accent));
-  transition: width 0.15s ease;
-}
-
-/* Download button with in-button loading + success animation */
-button.primary.dl {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-}
-.dl-fill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 0%;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.14));
-  transition: width 0.15s ease;
-  z-index: -1;
-}
-.dl-label {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-button.primary.dl.is-done {
-  background: linear-gradient(135deg, #2fb344, var(--ok));
-  opacity: 1;
-  cursor: default;
-  animation: dlPop 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28) both;
-}
-@keyframes dlPop {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.04); }
-  100% { transform: scale(1); }
-}
-
-.dl-spinner {
-  width: 15px;
-  height: 15px;
-  border: 2px solid rgba(255, 255, 255, 0.45);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  flex: none;
-}
-.dl-check {
-  width: 18px;
-  height: 18px;
-  flex: none;
-}
-.dl-check path {
-  fill: none;
-  stroke: #fff;
-  stroke-width: 2.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: 26;
-  stroke-dashoffset: 26;
-  animation: drawCheck 0.35s 0.05s ease forwards;
-}
-@keyframes drawCheck { to { stroke-dashoffset: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
-  button.primary.dl.is-done { animation: none; }
-  .dl-check path { animation: none; stroke-dashoffset: 0; }
-  .dl-spinner { animation-duration: 1.2s; }
-}
-
-.status { margin-top: 14px; font-size: 0.88rem; min-height: 1.2em; text-align: center; }
-.status.error { color: var(--err); }
-.status.ok { color: var(--ok); }
-.status.muted { color: var(--muted); }
-
-.spinner {
-  display: inline-block; width: 14px; height: 14px;
-  border: 2px solid #ffffff55; border-top-color: #fff;
-  border-radius: 50%; animation: spin 0.7s linear infinite;
-  vertical-align: -2px; margin-right: 6px;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-footer {
-  margin-top: 18px; font-size: 0.72rem; color: var(--muted);
-  text-align: center; line-height: 1.5;
-}
-
-@media (max-width: 380px) {
-  /* Keep the input and its paste/clear buttons on one row; only shrink the
-     icon buttons a touch so everything still fits on narrow phones. */
-  .field { gap: 6px; }
-  .icon-btn { width: 42px; font-size: 0.95rem; }
-}
-
-/* Short / landscape screens: keep the video from eating the whole viewport */
-@media (max-height: 560px) {
-  video { max-height: 56dvh; }
-  .card { padding: clamp(14px, 3vw, 20px); }
-  p.sub { margin-bottom: 12px; }
-}
-
-/* Large screens: a touch wider for comfort */
-@media (min-width: 1000px) {
-  .card { width: min(100%, 520px); }
+  .dl-check-path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
 }
