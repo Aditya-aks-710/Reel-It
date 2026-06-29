@@ -5,6 +5,7 @@ const assert = require('node:assert');
 
 const {
   extractVideoUrl,
+  looksVideoOnly,
   decodeHtmlEntities,
   unescapeJsonString,
   extractMetadata,
@@ -72,6 +73,25 @@ test('unescapeJsonString un-escapes slashes and unicode', () => {
     unescapeJsonString('https:\\/\\/x.com\\/a\\u0026b'),
     'https://x.com/a&b'
   );
+});
+
+test('looksVideoOnly detects a video_dashinit stream', () => {
+  // base64url of a string containing "..._video_dashinit.mp4"
+  const ncVs = Buffer.from('Rig_prod/ABC_video_dashinit.mp4', 'latin1')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+  const url = `https://cdn.example.com/v.mp4?_nc_vs=${ncVs}`;
+  assert.strictEqual(looksVideoOnly(url), true);
+});
+
+test('looksVideoOnly returns false for a progressive url', () => {
+  const ncVs = Buffer.from('Rig_prod/ABC_progressive.mp4', 'latin1')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+  assert.strictEqual(looksVideoOnly(`https://cdn.example.com/v.mp4?_nc_vs=${ncVs}`), false);
+  assert.strictEqual(looksVideoOnly('https://cdn.example.com/v.mp4'), false);
 });
 
 // Exercise 5 — metadata extraction (Exercise 2)

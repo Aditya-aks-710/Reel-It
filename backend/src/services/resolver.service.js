@@ -159,6 +159,32 @@ function extractVideoUrl(html) {
   return null;
 }
 
+/**
+ * Decide whether a scraped video URL is a VIDEO-ONLY (silent) DASH track.
+ *
+ * Instagram encodes the underlying stream's filename in the `_nc_vs` query
+ * param (base64url). A separate-track reel points at "..._video_dashinit.mp4"
+ * — i.e. the picture with no sound. Detecting this lets us avoid serving a
+ * muted file and hand the reel to yt-dlp instead, which pairs the audio back.
+ *
+ * False positives are harmless: yt-dlp still returns the correct (progressive)
+ * stream, and if yt-dlp fails we fall back to this same URL.
+ *
+ * @param {string} videoUrl
+ * @returns {boolean}
+ */
+function looksVideoOnly(videoUrl) {
+  try {
+    const ncVs = new URL(videoUrl).searchParams.get('_nc_vs');
+    if (!ncVs) return false;
+    const b64 = ncVs.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = Buffer.from(b64, 'base64').toString('latin1');
+    return /video_dashinit/i.test(decoded);
+  } catch {
+    return false;
+  }
+}
+
 /** Un-escape a JSON string fragment: \/ -> /, \u0026 -> &, \\ -> \, etc. */
 function unescapeJsonString(str) {
   try {
@@ -262,9 +288,11 @@ async function resolveReel(reelUrl) {
     }
   }
 
-  // Final fallback: yt-dlp, which handles the login wall far better and can
-  // reuse browser cookies. It returns the video URL AND preview metadata.
-  if (!videoUrl && ytdlp.isAvailable()) {
+  // Fall back to yt-dlp when the scrape found NO video at all, OR when it found
+  // only a silent video-only DASH track. yt-dlp re-pairs the audio (and, given
+  // cookies, sees streams anonymous requests can't), so we never serve a muted
+  // file when a better source is reachable.
+  if ((!videoUrl || looksVideoOnly(videoUrl)) && ytdlp.isAvailable()) {
     try {
       const result = await ytdlp.resolveWithYtDlp(reelUrl);
       logger.info('Resolved via yt-dlp fallback.');
@@ -273,6 +301,8 @@ async function resolveReel(reelUrl) {
       return payload;
     } catch (err) {
       logger.warn(`yt-dlp fallback failed: ${err.message}`);
+      // If we still have the (possibly silent) scraped URL, serve it below
+      // rather than failing the request outright.
     }
   }
 
@@ -296,6 +326,7 @@ module.exports = {
   resolveReel,
   // Exported for unit testing:
   extractVideoUrl,
+  looksVideoOnly,
   decodeHtmlEntities,
   unescapeJsonString,
   extractMetadata,
